@@ -12,10 +12,10 @@ import { LanguageSelector } from "@/components/auth/language-selector";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ImageUpload } from "@/components/shared/image-upload";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { imageUrlWithCache } from "@/lib/utils";
 
 export default function SettingsPage() {
-  const { profile, business, updateProfile, updateBusiness } =
-    useAuth();
+  const { profile, business, updateProfile, updateBusiness } = useAuth();
   const { t, lang } = useLanguage();
   const supabase = createSupabaseBrowserClient();
 
@@ -105,8 +105,11 @@ export default function SettingsPage() {
         </h3>
         <div className="space-y-4">
           <div className="flex items-center gap-4">
-            <Avatar className="h-16 w-16">
-              <AvatarImage src={business?.logo_url ?? undefined} />
+            <Avatar
+              key={imageUrlWithCache(business?.logo_url)}
+              className="h-16 w-16"
+            >
+              <AvatarImage src={imageUrlWithCache(business?.logo_url)} />
               <AvatarFallback className="text-lg">
                 {business?.name?.charAt(0) ?? "B"}
               </AvatarFallback>
@@ -199,9 +202,7 @@ export default function SettingsPage() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">
-              {t.settings.address}
-            </label>
+            <label className="text-sm font-medium">{t.settings.address}</label>
             <Input
               value={address}
               onChange={(e) => setAddress(e.target.value)}
@@ -210,9 +211,7 @@ export default function SettingsPage() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">
-              {t.settings.phone}
-            </label>
+            <label className="text-sm font-medium">{t.settings.phone}</label>
             <Input
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
@@ -240,6 +239,7 @@ export default function SettingsPage() {
         </h3>
         <div className="space-y-4">
           <ImageUpload
+            key={imageUrlWithCache(profile?.profile_image_url)}
             bucket="avatars"
             path={`profiles/${profile?.id || "unknown"}`}
             existingUrl={profile?.profile_image_url ?? undefined}
@@ -248,9 +248,7 @@ export default function SettingsPage() {
           />
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">
-              {t.profile.fullName}
-            </label>
+            <label className="text-sm font-medium">{t.profile.fullName}</label>
             <Input
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
