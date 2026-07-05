@@ -24,7 +24,6 @@ import {
   X,
   Download,
   PackagePlus,
-  Minus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -295,31 +294,27 @@ export default function ProductsPage() {
               {qty <= min && (
                 <span className="text-[10px] text-destructive">Low</span>
               )}
-              <div className="ml-1 flex items-center gap-0.5">
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+              <div className="ml-2 flex items-center gap-2">
+                <button
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleAdjustStock(id, 1);
                   }}
-                  title="Add 1"
+                  className="text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded-md text-[11px] font-semibold transition-colors"
                 >
-                  <Plus className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                  Add
+                </button>
+                <button
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleAdjustStock(id, -1);
                   }}
-                  title="Remove 1"
+                  className="text-rose-700 bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded-md text-[11px] font-semibold transition-colors"
                 >
-                  <Minus className="h-3.5 w-3.5" />
-                </Button>
+                  Remove
+                </button>
               </div>
             </div>
           );
