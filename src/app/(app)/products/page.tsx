@@ -67,6 +67,8 @@ export default function ProductsPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
   const [deleteProduct, setDeleteProduct] = useState<Product | null>(null);
+  const [deductProduct, setDeductProduct] = useState<Product | null>(null);
+  const [deductAmount, setDeductAmount] = useState("");
 
   const addToast = useToastStore((s) => s.addToast);
 
@@ -170,6 +172,26 @@ export default function ProductsPage() {
     addToast({
       title: "Product updated",
       description: `${editProduct.name} has been updated.`,
+      type: "success",
+    });
+  };
+
+  const handleDeductCustom = () => {
+    if (!deductProduct) return;
+    const amount = parseInt(deductAmount, 10);
+    if (isNaN(amount) || amount <= 0) return;
+    const { product, income } = store.deductCustomStock(
+      deductProduct.id,
+      amount,
+    );
+    if (!product) return;
+    refresh();
+    setDeductProduct(null);
+    setDeductAmount("");
+    syncStockAdjustment(deductProduct.id, -amount, product.quantity);
+    addToast({
+      title: "Stock deducted",
+      description: `${amount} units deducted from ${deductProduct.name}. Income: $${income.toFixed(2)}`,
       type: "success",
     });
   };
@@ -315,11 +337,23 @@ export default function ProductsPage() {
                 >
                   Remove
                 </button>
+                <span className="mx-0.5 text-muted-foreground/30">|</span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeductProduct(row.original);
+                    setDeductAmount("");
+                  }}
+                  className="text-orange-700 bg-orange-50 hover:bg-orange-100 px-2 py-1 rounded-md text-[11px] font-semibold transition-colors"
+                >
+                  Deduct
+                </button>
               </div>
             </div>
           );
         },
-        size: 150,
+        size: 200,
       },
       {
         accessorKey: "status",
@@ -715,6 +749,61 @@ export default function ProductsPage() {
         title="Delete Product"
         description={`Are you sure you want to delete &ldquo;${deleteProduct?.name}&rdquo;? This action cannot be undone.`}
       />
+
+      <Modal
+        open={!!deductProduct}
+        onClose={() => {
+          setDeductProduct(null);
+          setDeductAmount("");
+        }}
+        title="Deduct Custom Amount"
+        description={`Remove a specific quantity from ${deductProduct?.name ?? "product"} stock`}
+      >
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Quantity to deduct</label>
+            <input
+              type="number"
+              min="1"
+              value={deductAmount}
+              onChange={(e) => setDeductAmount(e.target.value)}
+              placeholder="Enter amount..."
+              className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+              autoFocus
+            />
+          </div>
+          {deductProduct && deductAmount && parseInt(deductAmount, 10) > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Estimated income:{" "}
+              <span className="font-medium text-foreground">
+                $
+                {(
+                  parseInt(deductAmount, 10) * deductProduct.sellingPrice
+                ).toFixed(2)}
+              </span>
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setDeductProduct(null);
+                setDeductAmount("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleDeductCustom}
+              disabled={!deductAmount || parseInt(deductAmount, 10) <= 0}
+            >
+              Deduct
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </motion.div>
   );
 }

@@ -24,5 +24,6 @@ export function createEmptyData(): StoreData {
     customers: [],
     orders: [],
     stockMovements: [],
+    manualIncome: 0,
   };
 }

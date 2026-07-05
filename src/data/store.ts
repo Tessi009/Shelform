@@ -173,6 +173,7 @@ class DataStore {
           : 0,
       lowStockCount,
       outOfStockCount,
+      totalIncome: this.data.manualIncome,
     };
   }
 
@@ -259,6 +260,24 @@ class DataStore {
       return this.data.stockMovements.filter((m) => m.productId === productId);
     }
     return [...this.data.stockMovements];
+  }
+
+  addManualIncome(amount: number): number {
+    this.data.manualIncome += amount;
+    return this.data.manualIncome;
+  }
+
+  deductCustomStock(
+    id: string,
+    amount: number,
+  ): { product: Product | null; income: number } {
+    const product = this.getProductById(id);
+    if (!product) return { product: null, income: 0 };
+    const income = amount * product.sellingPrice;
+    const updated = this.adjustProductStock(id, -amount);
+    if (!updated) return { product: null, income: 0 };
+    this.addManualIncome(income);
+    return { product: updated, income };
   }
 
   getStockMovement(): { month: string; incoming: number; outgoing: number }[] {

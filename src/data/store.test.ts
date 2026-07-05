@@ -244,4 +244,48 @@ describe("DataStore", () => {
       expect(typeof movements[0].timestamp).toBe("string");
     });
   });
+
+  describe("addManualIncome", () => {
+    test("adds income and returns running total", () => {
+      const total = store.addManualIncome(100);
+      expect(total).toBeGreaterThanOrEqual(100);
+
+      const total2 = store.addManualIncome(50);
+      expect(total2).toBeGreaterThanOrEqual(150);
+    });
+  });
+
+  describe("deductCustomStock", () => {
+    test("deducts stock, logs movement, adds income", () => {
+      const p = makeProduct({
+        id: "deduct-test",
+        quantity: 50,
+        sellingPrice: 20,
+      });
+      store.addProduct(p);
+
+      const result = store.deductCustomStock("deduct-test", 5);
+      expect(result.product).not.toBeNull();
+      expect(result.product!.quantity).toBe(45);
+      expect(result.income).toBe(100);
+
+      const log = store.getStockMovements("deduct-test");
+      expect(log).toHaveLength(1);
+      expect(log[0].delta).toBe(-5);
+    });
+
+    test("returns null product for non-existent id", () => {
+      const result = store.deductCustomStock("does-not-exist", 10);
+      expect(result.product).toBeNull();
+      expect(result.income).toBe(0);
+    });
+  });
+
+  describe("getDashboardMetrics", () => {
+    test("includes totalIncome", () => {
+      const metrics = store.getDashboardMetrics();
+      expect(metrics).toHaveProperty("totalIncome");
+      expect(typeof metrics.totalIncome).toBe("number");
+    });
+  });
 });

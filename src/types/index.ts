@@ -109,6 +109,7 @@ export interface DashboardStats {
   averageMargin: number;
   lowStockCount: number;
   outOfStockCount: number;
+  totalIncome: number;
 }
 
 export interface InventoryMetrics {
