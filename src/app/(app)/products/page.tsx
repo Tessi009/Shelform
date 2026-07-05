@@ -24,6 +24,7 @@ import {
   X,
   Download,
   PackagePlus,
+  Minus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -34,11 +35,15 @@ import { ProductForm } from "@/components/products/product-form";
 import { store } from "@/data/store";
 import { formatCurrency, formatNumber } from "@/lib/inventory";
 import { useToastStore } from "@/store/toast";
+import { syncStockAdjustment } from "@/lib/products";
 import type { Product, ProductStatus, Category, Supplier } from "@/types";
 
 const statusConfig: Record<
   ProductStatus,
-  { label: string; variant: "default" | "secondary" | "destructive" | "outline" }
+  {
+    label: string;
+    variant: "default" | "secondary" | "destructive" | "outline";
+  }
 > = {
   in_stock: { label: "In Stock", variant: "default" },
   low_stock: { label: "Low Stock", variant: "secondary" },
@@ -49,12 +54,16 @@ const statusConfig: Record<
 const PAGE_SIZE = 15;
 
 export default function ProductsPage() {
-  const [products, setProducts] = useState<Product[]>(() => store.getProducts());
+  const [products, setProducts] = useState<Product[]>(() =>
+    store.getProducts(),
+  );
   const [sorting, setSorting] = useState<SortingState>([]);
   const [rowSelection, setRowSelection] = useState({});
   const [globalFilter, setGlobalFilter] = useState("");
   const [activeCategoryFilter, setActiveCategoryFilter] = useState("");
-  const [activeStatusFilter, setActiveStatusFilter] = useState<ProductStatus | "">("");
+  const [activeStatusFilter, setActiveStatusFilter] = useState<
+    ProductStatus | ""
+  >("");
 
   const [addOpen, setAddOpen] = useState(false);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
@@ -81,7 +90,7 @@ export default function ProductsPage() {
           p.sku.toLowerCase().includes(q) ||
           p.barcode.toLowerCase().includes(q) ||
           (p.categoryName || "").toLowerCase().includes(q) ||
-          (p.supplierName || "").toLowerCase().includes(q)
+          (p.supplierName || "").toLowerCase().includes(q),
       );
     }
     if (activeCategoryFilter) {
@@ -94,17 +103,22 @@ export default function ProductsPage() {
   }, [products, globalFilter, activeCategoryFilter, activeStatusFilter]);
 
   const handleAdd = (values: any) => {
-    const cat = values.categoryId ? store.getCategories().find((c: Category) => c.id === values.categoryId) : undefined;
-    const sup = values.supplierId ? store.getSuppliers().find((s: Supplier) => s.id === values.supplierId) : undefined;
+    const cat = values.categoryId
+      ? store.getCategories().find((c: Category) => c.id === values.categoryId)
+      : undefined;
+    const sup = values.supplierId
+      ? store.getSuppliers().find((s: Supplier) => s.id === values.supplierId)
+      : undefined;
     const nextIndex = products.length;
 
     const newProduct: Product = {
       id: `prd-${String(nextIndex + 1).padStart(4, "0")}`,
       image: values.image || "",
       name: values.name,
-      sku: store.getProducts().length > 0
-        ? `PRD-${String(store.getProducts().length + 1).padStart(5, "0")}`
-        : "PRD-00001",
+      sku:
+        store.getProducts().length > 0
+          ? `PRD-${String(store.getProducts().length + 1).padStart(5, "0")}`
+          : "PRD-00001",
       barcode: `SHELF${Math.random().toString(36).slice(2, 14).toUpperCase()}`,
       categoryId: values.categoryId || "",
       categoryName: cat?.name || "",
@@ -119,7 +133,12 @@ export default function ProductsPage() {
       maximumStock: values.maximumStock,
       warehouse: values.warehouse || "",
       shelf: values.shelf || "",
-      status: values.quantity <= 0 ? "out_of_stock" : values.quantity <= values.minimumStock ? "low_stock" : "in_stock",
+      status:
+        values.quantity <= 0
+          ? "out_of_stock"
+          : values.quantity <= values.minimumStock
+            ? "low_stock"
+            : "in_stock",
       lastUpdated: new Date().toISOString(),
       createdAt: new Date().toISOString(),
     };
@@ -127,13 +146,21 @@ export default function ProductsPage() {
     store.addProduct(newProduct);
     refresh();
     setAddOpen(false);
-    addToast({ title: "Product added", description: `${newProduct.name} has been added.`, type: "success" });
+    addToast({
+      title: "Product added",
+      description: `${newProduct.name} has been added.`,
+      type: "success",
+    });
   };
 
   const handleEdit = (values: any) => {
     if (!editProduct) return;
-    const cat = values.categoryId ? store.getCategories().find((c: Category) => c.id === values.categoryId) : undefined;
-    const sup = values.supplierId ? store.getSuppliers().find((s: Supplier) => s.id === values.supplierId) : undefined;
+    const cat = values.categoryId
+      ? store.getCategories().find((c: Category) => c.id === values.categoryId)
+      : undefined;
+    const sup = values.supplierId
+      ? store.getSuppliers().find((s: Supplier) => s.id === values.supplierId)
+      : undefined;
     store.updateProduct(editProduct.id, {
       ...values,
       categoryName: cat?.name || "",
@@ -141,7 +168,26 @@ export default function ProductsPage() {
     });
     refresh();
     setEditProduct(null);
-    addToast({ title: "Product updated", description: `${editProduct.name} has been updated.`, type: "success" });
+    addToast({
+      title: "Product updated",
+      description: `${editProduct.name} has been updated.`,
+      type: "success",
+    });
+  };
+
+  const handleAdjustStock = (id: string, delta: number) => {
+    const product = store.getProductById(id);
+    if (!product) return;
+    const updated = store.adjustProductStock(id, delta);
+    if (!updated) return;
+    refresh();
+    syncStockAdjustment(id, delta, updated.quantity);
+    const label = delta > 0 ? "added to" : "removed from";
+    addToast({
+      title: "Stock updated",
+      description: `1 unit ${label} ${product.name}.`,
+      type: "success",
+    });
   };
 
   const handleDelete = () => {
@@ -149,7 +195,11 @@ export default function ProductsPage() {
     store.deleteProduct(deleteProduct.id);
     refresh();
     setDeleteProduct(null);
-    addToast({ title: "Product deleted", description: `${deleteProduct.name} has been removed.`, type: "success" });
+    addToast({
+      title: "Product deleted",
+      description: `${deleteProduct.name} has been removed.`,
+      type: "success",
+    });
   };
 
   const columns = useMemo(
@@ -181,14 +231,18 @@ export default function ProductsPage() {
         cell: ({ row }: any) => {
           const p = row.original;
           return (
-              <div className="flex items-center gap-3">
-                {p.image ? (
-                  <img src={p.image} alt={p.name} className="h-9 w-9 rounded-lg object-cover" />
-                ) : (
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-xs font-semibold text-muted-foreground">
-                    {p.name.charAt(0)}
-                  </div>
-                )}
+            <div className="flex items-center gap-3">
+              {p.image ? (
+                <img
+                  src={p.image}
+                  alt={p.name}
+                  className="h-9 w-9 rounded-lg object-cover"
+                />
+              ) : (
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-xs font-semibold text-muted-foreground">
+                  {p.name.charAt(0)}
+                </div>
+              )}
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium">{p.name}</p>
                 <p className="text-xs text-muted-foreground">{p.sku}</p>
@@ -210,7 +264,9 @@ export default function ProductsPage() {
         accessorKey: "costPrice",
         header: "Cost",
         cell: ({ getValue }: any) => (
-          <span className="text-sm font-medium tabular-nums">{formatCurrency(getValue())}</span>
+          <span className="text-sm font-medium tabular-nums">
+            {formatCurrency(getValue())}
+          </span>
         ),
         size: 100,
       },
@@ -218,7 +274,9 @@ export default function ProductsPage() {
         accessorKey: "sellingPrice",
         header: "Sell",
         cell: ({ getValue }: any) => (
-          <span className="text-sm font-medium tabular-nums">{formatCurrency(getValue())}</span>
+          <span className="text-sm font-medium tabular-nums">
+            {formatCurrency(getValue())}
+          </span>
         ),
         size: 100,
       },
@@ -228,14 +286,45 @@ export default function ProductsPage() {
         cell: ({ row }: any) => {
           const qty = row.original.quantity;
           const min = row.original.minimumStock;
+          const id = row.original.id;
           return (
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium tabular-nums">{formatNumber(qty)}</span>
-              {qty <= min && <span className="text-[10px] text-destructive">Low</span>}
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-medium tabular-nums">
+                {formatNumber(qty)}
+              </span>
+              {qty <= min && (
+                <span className="text-[10px] text-destructive">Low</span>
+              )}
+              <div className="ml-1 flex items-center gap-0.5">
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleAdjustStock(id, 1);
+                  }}
+                  title="Add 1"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleAdjustStock(id, -1);
+                  }}
+                  title="Remove 1"
+                >
+                  <Minus className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
           );
         },
-        size: 90,
+        size: 150,
       },
       {
         accessorKey: "status",
@@ -243,7 +332,10 @@ export default function ProductsPage() {
         cell: ({ getValue }: any) => {
           const status = getValue() as ProductStatus;
           return (
-            <Badge variant={statusConfig[status].variant} className="h-6 text-[11px]">
+            <Badge
+              variant={statusConfig[status].variant}
+              className="h-6 text-[11px]"
+            >
               {statusConfig[status].label}
             </Badge>
           );
@@ -261,7 +353,10 @@ export default function ProductsPage() {
                 variant="ghost"
                 size="icon-xs"
                 className="text-muted-foreground"
-                onClick={(e) => { e.stopPropagation(); setEditProduct(product); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditProduct(product);
+                }}
               >
                 <Edit3 className="h-3.5 w-3.5" />
               </Button>
@@ -269,11 +364,18 @@ export default function ProductsPage() {
                 variant="ghost"
                 size="icon-xs"
                 className="text-muted-foreground hover:text-destructive"
-                onClick={(e) => { e.stopPropagation(); setDeleteProduct(product); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDeleteProduct(product);
+                }}
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
-              <Button variant="ghost" size="icon-xs" className="text-muted-foreground">
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                className="text-muted-foreground"
+              >
                 <MoreHorizontal className="h-3.5 w-3.5" />
               </Button>
             </div>
@@ -283,7 +385,7 @@ export default function ProductsPage() {
         size: 110,
       },
     ],
-    []
+    [],
   );
 
   const table = useReactTable({
@@ -310,14 +412,20 @@ export default function ProductsPage() {
 
   if (products.length === 0) {
     return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="space-y-6"
+      >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
               <Package className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h2 className="text-2xl font-semibold tracking-tight">Products</h2>
+              <h2 className="text-2xl font-semibold tracking-tight">
+                Products
+              </h2>
               <p className="text-sm text-muted-foreground">0 total products</p>
             </div>
           </div>
@@ -329,7 +437,8 @@ export default function ProductsPage() {
           <div>
             <h3 className="text-lg font-semibold">No products yet</h3>
             <p className="text-sm text-muted-foreground max-w-sm mt-1">
-              Add your first product to start tracking inventory. You&apos;ll be able to manage stock levels, prices, suppliers, and more.
+              Add your first product to start tracking inventory. You&apos;ll be
+              able to manage stock levels, prices, suppliers, and more.
             </p>
           </div>
           <Button size="lg" onClick={() => setAddOpen(true)}>
@@ -337,15 +446,27 @@ export default function ProductsPage() {
             Add Your First Product
           </Button>
         </div>
-        <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Add Product" description="Create a new product in inventory">
-          <ProductForm onSubmit={handleAdd} onCancel={() => setAddOpen(false)} />
+        <Modal
+          open={addOpen}
+          onClose={() => setAddOpen(false)}
+          title="Add Product"
+          description="Create a new product in inventory"
+        >
+          <ProductForm
+            onSubmit={handleAdd}
+            onCancel={() => setAddOpen(false)}
+          />
         </Modal>
       </motion.div>
     );
   }
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="space-y-6"
+    >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
@@ -353,7 +474,9 @@ export default function ProductsPage() {
           </div>
           <div>
             <h2 className="text-2xl font-semibold tracking-tight">Products</h2>
-            <p className="text-sm text-muted-foreground">{products.length} total products</p>
+            <p className="text-sm text-muted-foreground">
+              {products.length} total products
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -394,12 +517,16 @@ export default function ProductsPage() {
           >
             <option value="">All Categories</option>
             {categories.map((cat) => (
-              <option key={cat} value={cat}>{cat}</option>
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
             ))}
           </select>
           <select
             value={activeStatusFilter}
-            onChange={(e) => setActiveStatusFilter(e.target.value as ProductStatus | "")}
+            onChange={(e) =>
+              setActiveStatusFilter(e.target.value as ProductStatus | "")
+            }
             className="h-9 rounded-lg border border-input bg-background px-3 text-sm text-muted-foreground outline-none focus:ring-2 focus:ring-ring"
           >
             <option value="">All Status</option>
@@ -409,7 +536,9 @@ export default function ProductsPage() {
             <option value="discontinued">Discontinued</option>
           </select>
           {hasFilters && (
-            <Button variant="ghost" size="sm" onClick={clearFilters}>Clear</Button>
+            <Button variant="ghost" size="sm" onClick={clearFilters}>
+              Clear
+            </Button>
           )}
         </div>
       </div>
@@ -425,18 +554,24 @@ export default function ProductsPage() {
                       key={header.id}
                       style={{ width: header.getSize() }}
                       className={`h-10 px-3 text-left text-xs font-medium text-muted-foreground ${
-                        header.column.getCanSort() ? "cursor-pointer select-none hover:text-foreground" : ""
+                        header.column.getCanSort()
+                          ? "cursor-pointer select-none hover:text-foreground"
+                          : ""
                       }`}
                       onClick={header.column.getToggleSortingHandler()}
                     >
                       <div className="flex items-center gap-1">
-                        {flexRender(header.column.columnDef.header, header.getContext())}
+                        {flexRender(
+                          header.column.columnDef.header,
+                          header.getContext(),
+                        )}
                         {{
                           asc: <ChevronUp className="h-3 w-3" />,
                           desc: <ChevronDown className="h-3 w-3" />,
-                        }[header.column.getIsSorted() as string] ?? (
-                          header.column.getCanSort() ? <ChevronsUpDown className="h-3 w-3 opacity-30" /> : null
-                        )}
+                        }[header.column.getIsSorted() as string] ??
+                          (header.column.getCanSort() ? (
+                            <ChevronsUpDown className="h-3 w-3 opacity-30" />
+                          ) : null)}
                       </div>
                     </th>
                   ))}
@@ -454,8 +589,15 @@ export default function ProductsPage() {
                   data-selected={row.getIsSelected()}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} style={{ width: cell.column.getSize() }} className="h-14 px-3">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    <td
+                      key={cell.id}
+                      style={{ width: cell.column.getSize() }}
+                      className="h-14 px-3"
+                    >
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
                     </td>
                   ))}
                 </motion.tr>
@@ -474,7 +616,9 @@ export default function ProductsPage() {
               <Package className="h-12 w-12 text-muted-foreground/40" />
               <div>
                 <p className="text-sm font-medium">No products found</p>
-                <p className="text-sm text-muted-foreground">Try adjusting your search or filters</p>
+                <p className="text-sm text-muted-foreground">
+                  Try adjusting your search or filters
+                </p>
               </div>
             </motion.div>
           )}
@@ -484,18 +628,33 @@ export default function ProductsPage() {
       <div className="flex items-center justify-between text-sm text-muted-foreground">
         <p>
           Showing {table.getState().pagination.pageIndex * PAGE_SIZE + 1} to{" "}
-          {Math.min((table.getState().pagination.pageIndex + 1) * PAGE_SIZE, filteredData.length)} of{" "}
-          {filteredData.length} products
+          {Math.min(
+            (table.getState().pagination.pageIndex + 1) * PAGE_SIZE,
+            filteredData.length,
+          )}{" "}
+          of {filteredData.length} products
         </p>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+          >
             Previous
           </Button>
           <div className="flex gap-1">
-            {Array.from({ length: Math.min(table.getPageCount(), 7) }, (_, i) => i + 1).map((page) => (
+            {Array.from(
+              { length: Math.min(table.getPageCount(), 7) },
+              (_, i) => i + 1,
+            ).map((page) => (
               <Button
                 key={page}
-                variant={table.getState().pagination.pageIndex + 1 === page ? "default" : "outline"}
+                variant={
+                  table.getState().pagination.pageIndex + 1 === page
+                    ? "default"
+                    : "outline"
+                }
                 size="sm"
                 className="min-w-[32px]"
                 onClick={() => table.setPageIndex(page - 1)}
@@ -504,13 +663,23 @@ export default function ProductsPage() {
               </Button>
             ))}
           </div>
-          <Button variant="outline" size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanNextPage()}
+          >
             Next
           </Button>
         </div>
       </div>
 
-      <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Add Product" description="Create a new product in inventory">
+      <Modal
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        title="Add Product"
+        description="Create a new product in inventory"
+      >
         <ProductForm onSubmit={handleAdd} onCancel={() => setAddOpen(false)} />
       </Modal>
 
