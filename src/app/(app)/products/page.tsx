@@ -17,13 +17,13 @@ import {
   ChevronsUpDown,
   Search,
   Plus,
-  MoreHorizontal,
   Edit3,
   Trash2,
   Package,
   X,
   Download,
   PackagePlus,
+  HandCoins,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -337,18 +337,6 @@ export default function ProductsPage() {
                 >
                   Remove
                 </button>
-                <span className="mx-0.5 text-muted-foreground/30">|</span>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setDeductProduct(row.original);
-                    setDeductAmount("");
-                  }}
-                  className="text-orange-700 bg-orange-50 hover:bg-orange-100 px-2 py-1 rounded-md text-[11px] font-semibold transition-colors"
-                >
-                  Deduct
-                </button>
               </div>
             </div>
           );
@@ -401,17 +389,22 @@ export default function ProductsPage() {
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
               <Button
-                variant="ghost"
-                size="icon-xs"
-                className="text-muted-foreground"
+                size="sm"
+                className="bg-zinc-800 text-white hover:bg-zinc-700 rounded-[0.375rem] gap-1.5 text-xs font-semibold border-0 shadow-sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDeductProduct(product);
+                  setDeductAmount("");
+                }}
               >
-                <MoreHorizontal className="h-3.5 w-3.5" />
+                <HandCoins className="h-3.5 w-3.5" />
+                Deduct
               </Button>
             </div>
           );
         },
         enableSorting: false,
-        size: 110,
+        size: 180,
       },
     ],
     [],
@@ -768,7 +761,7 @@ export default function ProductsPage() {
               value={deductAmount}
               onChange={(e) => setDeductAmount(e.target.value)}
               placeholder="Enter amount..."
-              className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+              className="h-11 w-full rounded-lg border border-input/60 bg-background/70 backdrop-blur-md px-3 text-sm outline-none transition-all duration-200 focus:border-input focus:bg-background/90 focus:ring-2 focus:ring-ring"
               autoFocus
             />
           </div>

@@ -5,6 +5,8 @@ import type {
   Customer,
   Order,
   StockMovementLog,
+  Service,
+  ServiceLog,
 } from "@/types";
 
 export type StoreData = {
@@ -14,6 +16,9 @@ export type StoreData = {
   customers: Customer[];
   orders: Order[];
   stockMovements: StockMovementLog[];
+  manualIncome: number;
+  services: Service[];
+  serviceLogs: ServiceLog[];
 };
 
 export function createEmptyData(): StoreData {
@@ -25,5 +30,7 @@ export function createEmptyData(): StoreData {
     orders: [],
     stockMovements: [],
     manualIncome: 0,
+    services: [],
+    serviceLogs: [],
   };
 }

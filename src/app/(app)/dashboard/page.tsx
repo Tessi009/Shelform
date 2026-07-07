@@ -1,6 +1,6 @@
 "use client";
 
-import { Package, ShoppingCart, DollarSign, Boxes, Wallet } from "lucide-react";
+import { Package, ShoppingCart, DollarSign, Boxes, Truck, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { StatsCard } from "@/components/dashboard/stats-card";
 import { RevenueChart } from "@/components/dashboard/revenue-chart";
@@ -108,12 +108,16 @@ export default function DashboardPage() {
           icon={<ShoppingCart className="h-4 w-4" />}
           formatter={(v) => v.toLocaleString()}
         />
-        <StatsCard
-          title="Total Income"
-          value={metrics.totalIncome}
-          icon={<Wallet className="h-4 w-4" />}
-          formatter={(v) => formatCurrency(v)}
-        />
+        <div className="relative">
+          <div className="absolute -inset-0.5 rounded-xl bg-gradient-to-br from-emerald-400 via-emerald-500 to-teal-600 opacity-20 blur-sm" />
+          <StatsCard
+            title="Total Income"
+            value={metrics.totalIncome}
+            icon={<TrendingUp className="h-4 w-4" />}
+            formatter={(v) => formatCurrency(v)}
+            className="relative ring-emerald-500/20 [&_svg]:text-emerald-600"
+          />
+        </div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">

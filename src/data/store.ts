@@ -6,6 +6,8 @@ import type {
   Customer,
   Order,
   StockMovementLog,
+  Service,
+  ServiceLog,
 } from "@/types";
 import { getProductStatus } from "@/lib/inventory";
 
@@ -22,6 +24,21 @@ class DataStore {
 
   getSuppliers(): Supplier[] {
     return this.data.suppliers;
+  }
+
+  searchSuppliers(query: string): Supplier[] {
+    const q = query.toLowerCase();
+    if (!q) return [...this.data.suppliers];
+    return this.data.suppliers.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        s.email.toLowerCase().includes(q) ||
+        s.phone.toLowerCase().includes(q) ||
+        s.city.toLowerCase().includes(q) ||
+        s.country.toLowerCase().includes(q) ||
+        (s.contactName || "").toLowerCase().includes(q) ||
+        (s.address || "").toLowerCase().includes(q),
+    );
   }
 
   getProducts(): Product[] {
@@ -173,7 +190,7 @@ class DataStore {
           : 0,
       lowStockCount,
       outOfStockCount,
-      totalIncome: this.data.manualIncome,
+      totalIncome: totalRevenue + this.data.manualIncome,
     };
   }
 
@@ -253,6 +270,82 @@ class DataStore {
     this.data.stockMovements.unshift(log);
 
     return updated;
+  }
+
+  addService(name: string, price: number): Service {
+    const service: Service = {
+      id: `svc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      name,
+      price,
+      servicesDone: 0,
+      createdAt: new Date().toISOString(),
+    };
+    this.data.services.push(service);
+    return service;
+  }
+
+  getServices(): Service[] {
+    return [...this.data.services];
+  }
+
+  deleteService(id: string): boolean {
+    const idx = this.data.services.findIndex((s) => s.id === id);
+    if (idx === -1) return false;
+    this.data.services.splice(idx, 1);
+    return true;
+  }
+
+  markServiceDone(id: string): { service: Service; income: number } | null {
+    const idx = this.data.services.findIndex((s) => s.id === id);
+    if (idx === -1) return null;
+    const existing = this.data.services[idx];
+    const income = existing.price;
+    const updated: Service = {
+      ...existing,
+      servicesDone: existing.servicesDone + 1,
+    };
+    this.data.services[idx] = updated;
+    this.addManualIncome(income);
+
+    const log: ServiceLog = {
+      id: `svclog-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      serviceId: id,
+      serviceName: existing.name,
+      price: income,
+      timestamp: new Date().toISOString(),
+    };
+    this.data.serviceLogs.unshift(log);
+
+    return { service: updated, income };
+  }
+
+  undoServiceDone(id: string): { service: Service; income: number } | null {
+    const idx = this.data.services.findIndex((s) => s.id === id);
+    if (idx === -1) return null;
+    const existing = this.data.services[idx];
+    if (existing.servicesDone <= 0) return null;
+    const income = existing.price;
+    const updated: Service = {
+      ...existing,
+      servicesDone: existing.servicesDone - 1,
+    };
+    this.data.services[idx] = updated;
+    this.data.manualIncome = Math.max(0, this.data.manualIncome - income);
+
+    const log: ServiceLog = {
+      id: `svclog-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      serviceId: id,
+      serviceName: existing.name,
+      price: -income,
+      timestamp: new Date().toISOString(),
+    };
+    this.data.serviceLogs.unshift(log);
+
+    return { service: updated, income };
+  }
+
+  getServiceLogs(): ServiceLog[] {
+    return [...this.data.serviceLogs];
   }
 
   getStockMovements(productId?: string): StockMovementLog[] {

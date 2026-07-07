@@ -279,13 +279,300 @@ describe("DataStore", () => {
       expect(result.product).toBeNull();
       expect(result.income).toBe(0);
     });
+
+    test("totalIncome reflects both order revenue and manual deduction income", () => {
+      const p = makeProduct({
+        id: "deduct-combined",
+        quantity: 100,
+        sellingPrice: 25,
+      });
+      store.addProduct(p);
+
+      const before = store.getDashboardMetrics();
+      store.deductCustomStock("deduct-combined", 4);
+      const after = store.getDashboardMetrics();
+
+      expect(after.totalIncome).toBeGreaterThan(before.totalRevenue);
+      expect(after.totalIncome).toBeGreaterThan(before.totalIncome);
+    });
+  });
+
+  describe("Services", () => {
+    test("addService adds and getServices returns services", () => {
+      const s = store.addService("Web Development", 500);
+      expect(s.name).toBe("Web Development");
+      expect(s.price).toBe(500);
+      expect(s.servicesDone).toBe(0);
+
+      const all = store.getServices();
+      const found = all.find((x) => x.id === s.id);
+      expect(found).toBeDefined();
+    });
+
+    test("deleteService removes a service", () => {
+      const s = store.addService("Temp Service", 100);
+      expect(store.getServices().find((x) => x.id === s.id)).toBeDefined();
+
+      store.deleteService(s.id);
+      expect(store.getServices().find((x) => x.id === s.id)).toBeUndefined();
+    });
+
+    test("markServiceDone increments counter and returns income", () => {
+      const s = store.addService("Consulting", 250);
+      const result = store.markServiceDone(s.id);
+
+      expect(result).not.toBeNull();
+      expect(result!.service.servicesDone).toBe(1);
+      expect(result!.income).toBe(250);
+
+      const updated = store.getServices().find((x) => x.id === s.id);
+      expect(updated?.servicesDone).toBe(1);
+    });
+
+    test("markServiceDone adds income to totalIncome in metrics", () => {
+      const before = store.getDashboardMetrics().totalIncome;
+      const s = store.addService("Design Sprint", 300);
+      store.markServiceDone(s.id);
+      const after = store.getDashboardMetrics().totalIncome;
+      expect(after).toBeGreaterThan(before);
+    });
+
+    test("markServiceDone creates a service log entry", () => {
+      const s = store.addService("Setup", 150);
+      store.markServiceDone(s.id);
+
+      const logs = store.getServiceLogs();
+      const match = logs.find((l) => l.serviceId === s.id);
+      expect(match).toBeDefined();
+      expect(match!.price).toBe(150);
+      expect(match!.serviceName).toBe("Setup");
+    });
+
+    test("markServiceDone returns null for non-existent service", () => {
+      const result = store.markServiceDone("nonexistent");
+      expect(result).toBeNull();
+    });
+
+    test("undoServiceDone decrements the servicesDone counter", () => {
+      const s = store.addService("Consulting Undo", 250);
+      store.markServiceDone(s.id);
+      expect(store.getServices().find((x) => x.id === s.id)?.servicesDone).toBe(1);
+
+      const result = store.undoServiceDone(s.id);
+      expect(result).not.toBeNull();
+      expect(result!.service.servicesDone).toBe(0);
+      expect(store.getServices().find((x) => x.id === s.id)?.servicesDone).toBe(0);
+    });
+
+    test("undoServiceDone subtracts the exact price from totalIncome", () => {
+      const s = store.addService("Undo Income", 200);
+      store.markServiceDone(s.id);
+      const afterMark = store.getDashboardMetrics().totalIncome;
+
+      store.undoServiceDone(s.id);
+      const afterUndo = store.getDashboardMetrics().totalIncome;
+      expect(afterUndo).toBe(afterMark - 200);
+    });
+
+    test("undoServiceDone logs a negative reversal entry in serviceLogs", () => {
+      const s = store.addService("Log Reversal", 150);
+      store.markServiceDone(s.id);
+
+      store.undoServiceDone(s.id);
+      const logs = store.getServiceLogs();
+      const reversal = logs.find((l) => l.serviceId === s.id && l.price < 0);
+      expect(reversal).toBeDefined();
+      expect(reversal!.price).toBe(-150);
+      expect(reversal!.serviceName).toBe("Log Reversal");
+    });
+
+    test("undoServiceDone returns null for non-existent service", () => {
+      const result = store.undoServiceDone("nonexistent");
+      expect(result).toBeNull();
+    });
+
+    test("undoServiceDone does nothing when servicesDone is already 0", () => {
+      const s = store.addService("Already Zero", 100);
+      expect(s.servicesDone).toBe(0);
+
+      const beforeIncome = store.getDashboardMetrics().totalIncome;
+      const result = store.undoServiceDone(s.id);
+      expect(result).toBeNull();
+
+      const afterIncome = store.getDashboardMetrics().totalIncome;
+      expect(afterIncome).toBe(beforeIncome);
+      expect(store.getServices().find((x) => x.id === s.id)?.servicesDone).toBe(0);
+    });
+
+    test("undoServiceDone counter never drops below 0", () => {
+      const s = store.addService("Floor Test", 300);
+      store.markServiceDone(s.id);
+      store.markServiceDone(s.id);
+      expect(store.getServices().find((x) => x.id === s.id)?.servicesDone).toBe(2);
+
+      store.undoServiceDone(s.id);
+      store.undoServiceDone(s.id);
+      expect(store.getServices().find((x) => x.id === s.id)?.servicesDone).toBe(0);
+
+      const result = store.undoServiceDone(s.id);
+      expect(result).toBeNull();
+      expect(store.getServices().find((x) => x.id === s.id)?.servicesDone).toBe(0);
+    });
+  });
+
+  describe("Suppliers", () => {
+    test("addSupplier adds and getSuppliers returns suppliers", () => {
+      const supplier: Supplier = {
+        id: "sup-test-1",
+        name: "Test Supplier",
+        contactName: "John",
+        email: "john@test.com",
+        phone: "123-456-7890",
+        address: "123 Main St",
+        city: "Portland",
+        country: "US",
+        status: "active",
+        productCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      store.addSupplier(supplier);
+      const all = store.getSuppliers();
+      const found = all.find((s) => s.id === "sup-test-1");
+      expect(found).toBeDefined();
+      expect(found!.name).toBe("Test Supplier");
+      expect(found!.email).toBe("john@test.com");
+      expect(found!.phone).toBe("123-456-7890");
+    });
+
+    test("updateSupplier modifies supplier fields", () => {
+      const supplier: Supplier = {
+        id: "sup-upd-1",
+        name: "Original Co",
+        contactName: "Alice",
+        email: "alice@orig.com",
+        phone: "111-222-3333",
+        address: "",
+        city: "",
+        country: "",
+        status: "active",
+        productCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      store.addSupplier(supplier);
+      const updated = store.updateSupplier("sup-upd-1", {
+        name: "Updated Co",
+        email: "alice@updated.com",
+        phone: "444-555-6666",
+      });
+      expect(updated).not.toBeNull();
+      expect(updated!.name).toBe("Updated Co");
+      expect(updated!.email).toBe("alice@updated.com");
+      expect(updated!.phone).toBe("444-555-6666");
+
+      const stored = store.getSuppliers().find((s) => s.id === "sup-upd-1");
+      expect(stored!.name).toBe("Updated Co");
+    });
+
+    test("updateSupplier returns null for non-existent id", () => {
+      const result = store.updateSupplier("nonexistent", { name: "Nope" });
+      expect(result).toBeNull();
+    });
+
+    test("deleteSupplier removes a supplier", () => {
+      const supplier: Supplier = {
+        id: "sup-del-1",
+        name: "Delete Me",
+        contactName: "",
+        email: "",
+        phone: "",
+        address: "",
+        city: "",
+        country: "",
+        status: "active",
+        productCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      store.addSupplier(supplier);
+      expect(store.getSuppliers().find((s) => s.id === "sup-del-1")).toBeDefined();
+      store.deleteSupplier("sup-del-1");
+      expect(store.getSuppliers().find((s) => s.id === "sup-del-1")).toBeUndefined();
+    });
+
+    test("deleteSupplier returns false for non-existent id", () => {
+      const result = store.deleteSupplier("nonexistent");
+      expect(result).toBe(false);
+    });
+
+    test("searchSuppliers filters by name, email, phone, city, country", () => {
+      store.addSupplier({
+        id: "sup-srch-1",
+        name: "Alpha Corp",
+        contactName: "",
+        email: "alpha@corp.com",
+        phone: "555-0101",
+        address: "",
+        city: "New York",
+        country: "US",
+        status: "active",
+        productCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+      store.addSupplier({
+        id: "sup-srch-2",
+        name: "Beta LLC",
+        contactName: "",
+        email: "beta@llc.com",
+        phone: "555-0202",
+        address: "",
+        city: "Portland",
+        country: "US",
+        status: "active",
+        productCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+      store.addSupplier({
+        id: "sup-srch-3",
+        name: "Gamma Inc",
+        contactName: "",
+        email: "gamma@inc.com",
+        phone: "555-0303",
+        address: "",
+        city: "London",
+        country: "UK",
+        status: "inactive",
+        productCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+
+      const byName = store.searchSuppliers("alpha");
+      expect(byName.length).toBeGreaterThanOrEqual(1);
+      expect(byName.some((s) => s.id === "sup-srch-1")).toBe(true);
+
+      const byEmail = store.searchSuppliers("beta@llc");
+      expect(byEmail.length).toBeGreaterThanOrEqual(1);
+      expect(byEmail.some((s) => s.id === "sup-srch-2")).toBe(true);
+
+      const byCity = store.searchSuppliers("london");
+      expect(byCity.length).toBeGreaterThanOrEqual(1);
+      expect(byCity.some((s) => s.id === "sup-srch-3")).toBe(true);
+
+      const allQuery = store.searchSuppliers("");
+      expect(allQuery.length).toBeGreaterThanOrEqual(3);
+    });
   });
 
   describe("getDashboardMetrics", () => {
-    test("includes totalIncome", () => {
+    test("totalIncome combines order revenue and manual income", () => {
       const metrics = store.getDashboardMetrics();
       expect(metrics).toHaveProperty("totalIncome");
       expect(typeof metrics.totalIncome).toBe("number");
+      expect(metrics.totalIncome).toBeGreaterThanOrEqual(metrics.totalRevenue);
     });
   });
 });

@@ -151,3 +151,19 @@ export interface StockMovementLog {
   quantityAfter: number;
   timestamp: string;
 }
+
+export interface Service {
+  id: string;
+  name: string;
+  price: number;
+  servicesDone: number;
+  createdAt: string;
+}
+
+export interface ServiceLog {
+  id: string;
+  serviceId: string;
+  serviceName: string;
+  price: number;
+  timestamp: string;
+}
