@@ -1,9 +1,13 @@
 import { createBrowserClient } from "@supabase/ssr";
+import { sanitizeSupabaseUrl, requireEnv } from "@/lib/supabase/url";
 
 export function createSupabaseBrowserClient() {
+  const supabaseUrl = sanitizeSupabaseUrl(requireEnv("NEXT_PUBLIC_SUPABASE_URL"));
+  const supabaseKey = requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+
   return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    supabaseKey,
     {
       global: {
         fetch: async (input, init) => {
