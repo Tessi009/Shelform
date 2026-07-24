@@ -61,4 +61,18 @@ describe("AuthProvider", () => {
     expect(createBrowserClientCallCount).toBe(afterMount);
     expect(createBrowserClientCallCount).toBe(1);
   });
+
+  test("renders without crashing when getSession fails", () => {
+    mockSupabaseClient.auth.getSession = vi
+      .fn()
+      .mockRejectedValue(new Error("Failed to fetch"));
+
+    expect(() =>
+      render(
+        <AuthProvider>
+          <div>child</div>
+        </AuthProvider>
+      )
+    ).not.toThrow();
+  });
 });
