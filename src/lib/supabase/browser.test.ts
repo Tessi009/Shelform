@@ -48,22 +48,30 @@ describe("createSupabaseBrowserClient", () => {
     expect(url).toBe("https://example.supabase.co");
   });
 
-  test("throws when SUPABASE_URL is missing", async () => {
+  test("does not throw in browser when SUPABASE_URL is missing, passes empty string instead", () => {
     delete process.env.NEXT_PUBLIC_SUPABASE_URL;
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-anon-key";
 
-    expect(() => createSupabaseBrowserClient()).toThrow(
-      "NEXT_PUBLIC_SUPABASE_URL environment variable is required but was undefined"
-    );
+    mockCreateBrowserClient.mockReturnValue({});
+
+    createSupabaseBrowserClient();
+
+    expect(mockCreateBrowserClient).toHaveBeenCalledTimes(1);
+    const [url] = mockCreateBrowserClient.mock.calls[0];
+    expect(url).toBe("");
   });
 
-  test("throws when SUPABASE_ANON_KEY is missing", async () => {
+  test("does not throw in browser when SUPABASE_ANON_KEY is missing, passes empty string instead", () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
     delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-    expect(() => createSupabaseBrowserClient()).toThrow(
-      "NEXT_PUBLIC_SUPABASE_ANON_KEY environment variable is required but was undefined"
-    );
+    mockCreateBrowserClient.mockReturnValue({});
+
+    createSupabaseBrowserClient();
+
+    expect(mockCreateBrowserClient).toHaveBeenCalledTimes(1);
+    const [, key] = mockCreateBrowserClient.mock.calls[0];
+    expect(key).toBe("");
   });
 
   test("provides a resilient fetch wrapper that handles network errors", async () => {

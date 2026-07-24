@@ -32,16 +32,36 @@ describe("sanitizeSupabaseUrl", () => {
     );
   });
 
-  test("throws on empty string", () => {
-    expect(() => sanitizeSupabaseUrl("")).toThrow(
-      "NEXT_PUBLIC_SUPABASE_URL is required"
-    );
+  test("returns empty string instead of throwing in browser on empty string", () => {
+    expect(sanitizeSupabaseUrl("")).toBe("");
   });
 
-  test("throws on whitespace-only string", () => {
-    expect(() => sanitizeSupabaseUrl("   ")).toThrow(
-      "NEXT_PUBLIC_SUPABASE_URL is required"
-    );
+  test("returns empty string instead of throwing in browser on whitespace-only", () => {
+    expect(sanitizeSupabaseUrl("   ")).toBe("");
+  });
+
+  test("throws on empty string in server environment", () => {
+    const win = globalThis.window;
+    delete (globalThis as any).window;
+    try {
+      expect(() => sanitizeSupabaseUrl("")).toThrow(
+        "NEXT_PUBLIC_SUPABASE_URL is required"
+      );
+    } finally {
+      (globalThis as any).window = win;
+    }
+  });
+
+  test("throws on whitespace-only string in server environment", () => {
+    const win = globalThis.window;
+    delete (globalThis as any).window;
+    try {
+      expect(() => sanitizeSupabaseUrl("   ")).toThrow(
+        "NEXT_PUBLIC_SUPABASE_URL is required"
+      );
+    } finally {
+      (globalThis as any).window = win;
+    }
   });
 });
 
@@ -61,24 +81,57 @@ describe("requireEnv", () => {
     expect(requireEnv("TEST_KEY")).toBe("https://example.com");
   });
 
-  test("throws when undefined", () => {
+  test("throws when undefined in server environment", () => {
+    const win = globalThis.window;
+    delete (globalThis as any).window;
+    try {
+      delete process.env.TEST_KEY;
+      expect(() => requireEnv("TEST_KEY")).toThrow(
+        "TEST_KEY environment variable is required but was undefined"
+      );
+    } finally {
+      (globalThis as any).window = win;
+    }
+  });
+
+  test("throws when empty in server environment", () => {
+    const win = globalThis.window;
+    delete (globalThis as any).window;
+    try {
+      process.env.TEST_KEY = "";
+      expect(() => requireEnv("TEST_KEY")).toThrow(
+        "TEST_KEY environment variable is required but was empty"
+      );
+    } finally {
+      (globalThis as any).window = win;
+    }
+  });
+
+  test("throws when whitespace only in server environment", () => {
+    const win = globalThis.window;
+    delete (globalThis as any).window;
+    try {
+      process.env.TEST_KEY = "   ";
+      expect(() => requireEnv("TEST_KEY")).toThrow(
+        "TEST_KEY environment variable is required but was empty"
+      );
+    } finally {
+      (globalThis as any).window = win;
+    }
+  });
+
+  test("returns empty fallback instead of throwing in browser when undefined", () => {
     delete process.env.TEST_KEY;
-    expect(() => requireEnv("TEST_KEY")).toThrow(
-      "TEST_KEY environment variable is required but was undefined"
-    );
+    expect(requireEnv("TEST_KEY")).toBe("");
   });
 
-  test("throws when empty", () => {
+  test("returns empty fallback instead of throwing in browser when empty", () => {
     process.env.TEST_KEY = "";
-    expect(() => requireEnv("TEST_KEY")).toThrow(
-      "TEST_KEY environment variable is required but was empty"
-    );
+    expect(requireEnv("TEST_KEY")).toBe("");
   });
 
-  test("throws when whitespace only", () => {
+  test("returns empty fallback instead of throwing in browser when whitespace only", () => {
     process.env.TEST_KEY = "   ";
-    expect(() => requireEnv("TEST_KEY")).toThrow(
-      "TEST_KEY environment variable is required but was empty"
-    );
+    expect(requireEnv("TEST_KEY")).toBe("");
   });
 });
