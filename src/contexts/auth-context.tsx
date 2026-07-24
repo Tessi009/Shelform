@@ -6,6 +6,7 @@ import {
   useEffect,
   useState,
   useCallback,
+  useRef,
   type ReactNode,
 } from "react";
 import type { User } from "@supabase/supabase-js";
@@ -67,7 +68,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [business, setBusiness] = useState<Business | null>(null);
   const [loading, setLoading] = useState(true);
-  const supabase = createSupabaseBrowserClient();
+  const supabaseRef = useRef<ReturnType<typeof createSupabaseBrowserClient> | null>(null);
+  if (supabaseRef.current === null) supabaseRef.current = createSupabaseBrowserClient();
+  const supabase = supabaseRef.current;
   const router = useRouter();
 
   const fetchProfile = useCallback(async (userId: string) => {
