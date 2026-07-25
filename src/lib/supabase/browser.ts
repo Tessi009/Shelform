@@ -1,30 +1,58 @@
 import { createBrowserClient } from "@supabase/ssr";
-import { sanitizeSupabaseUrl, requireEnv } from "@/lib/supabase/url";
+import { sanitizeSupabaseUrl, stripQuotes } from "@/lib/supabase/url";
+
+const PLACEHOLDER_URL = "https://placeholder.supabase.co";
+const PLACEHOLDER_KEY = "placeholder-key";
+
+function getErrorMessage(e: unknown): string {
+  if (e instanceof TypeError) return e.message;
+  if (e && typeof e === "object" && "message" in e) return String(e.message);
+  return String(e);
+}
 
 export function createSupabaseBrowserClient() {
-  const supabaseUrl = sanitizeSupabaseUrl(requireEnv("NEXT_PUBLIC_SUPABASE_URL"));
-  const supabaseKey = requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const rawKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  return createBrowserClient(
-    supabaseUrl,
-    supabaseKey,
-    {
-      global: {
-        fetch: async (input, init) => {
-          try {
-            return await fetch(input, init);
-          } catch {
-            return new Response(
-              JSON.stringify({ error: "network_error", message: "Failed to reach Supabase" }),
-              {
-                status: 503,
-                statusText: "Service Unavailable",
-                headers: { "Content-Type": "application/json" },
-              }
-            );
+  if (!rawUrl?.trim() || !rawKey?.trim()) {
+    console.warn(
+      "[Supabase] Missing environment variables for browser client initialization. " +
+      "Ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set."
+    );
+  }
+
+  const supabaseUrl = rawUrl?.trim() ? sanitizeSupabaseUrl(rawUrl) : PLACEHOLDER_URL;
+  const supabaseKey = rawKey?.trim() ? stripQuotes(rawKey.trim()) : PLACEHOLDER_KEY;
+
+  return createBrowserClient(supabaseUrl, supabaseKey, {
+    global: {
+      fetch: async (input, init) => {
+        try {
+          return await fetch(input, init);
+        } catch (error) {
+          const url =
+            typeof input === "string"
+              ? input
+              : input instanceof Request
+                ? input.url
+                : "";
+          const method = init?.method || "GET";
+
+          if (method === "GET" || method === "HEAD") {
+            const body = url.includes("/auth/")
+              ? JSON.stringify({ user: null })
+              : "[]";
+            return new Response(body, {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            });
           }
-        },
+
+          throw new Error(
+            `[Supabase] ${getErrorMessage(error)}`
+          );
+        }
       },
-    }
-  );
+    },
+  });
 }

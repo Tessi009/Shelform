@@ -6,7 +6,6 @@ import {
   useEffect,
   useState,
   useCallback,
-  useRef,
   type ReactNode,
 } from "react";
 import type { User } from "@supabase/supabase-js";
@@ -68,28 +67,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [business, setBusiness] = useState<Business | null>(null);
   const [loading, setLoading] = useState(true);
-  const supabaseRef = useRef<ReturnType<typeof createSupabaseBrowserClient> | null>(null);
-  if (supabaseRef.current === null) supabaseRef.current = createSupabaseBrowserClient();
-  const supabase = supabaseRef.current;
+  const [supabase] = useState(() => createSupabaseBrowserClient());
   const router = useRouter();
 
   const fetchProfile = useCallback(async (userId: string) => {
-    const { data: prof } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .single();
-
-    if (prof) {
-      setProfile(prof as Profile);
-
-      const { data: biz } = await supabase
-        .from("businesses")
+    try {
+      const { data: prof } = await supabase
+        .from("profiles")
         .select("*")
-        .eq("id", prof.business_id)
+        .eq("id", userId)
         .single();
 
-      if (biz) setBusiness(biz as Business);
+      if (prof) {
+        setProfile(prof as Profile);
+
+        try {
+          const { data: biz } = await supabase
+            .from("businesses")
+            .select("*")
+            .eq("id", prof.business_id)
+            .single();
+
+          if (biz) setBusiness(biz as Business);
+        } catch {
+          // Business fetch failed gracefully
+        }
+      }
+    } catch {
+      // Profile fetch failed gracefully
     }
   }, [supabase]);
 

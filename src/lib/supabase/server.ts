@@ -1,13 +1,22 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { sanitizeSupabaseUrl, requireEnv } from "@/lib/supabase/url";
+import { sanitizeSupabaseUrl } from "@/lib/supabase/url";
 
 export async function createSupabaseServerClient() {
+  const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const rawKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!rawUrl?.trim() || !rawKey?.trim()) {
+    throw new Error(
+      "NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables are required"
+    );
+  }
+
   const cookieStore = await cookies();
 
   return createServerClient(
-    sanitizeSupabaseUrl(requireEnv("NEXT_PUBLIC_SUPABASE_URL")),
-    requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
+    sanitizeSupabaseUrl(rawUrl),
+    rawKey.trim(),
     {
       cookies: {
         getAll() {

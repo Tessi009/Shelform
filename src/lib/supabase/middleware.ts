@@ -1,13 +1,20 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { sanitizeSupabaseUrl, requireEnv } from "@/lib/supabase/url";
+import { sanitizeSupabaseUrl } from "@/lib/supabase/url";
 
 export async function updateSession(request: NextRequest) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl?.trim() || !supabaseKey?.trim()) {
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
-    sanitizeSupabaseUrl(requireEnv("NEXT_PUBLIC_SUPABASE_URL")),
-    requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
+    sanitizeSupabaseUrl(supabaseUrl),
+    supabaseKey.trim(),
     {
       cookies: {
         getAll() {
@@ -26,9 +33,13 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user = null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  } catch {
+    return NextResponse.next({ request });
+  }
 
   const { pathname } = request.nextUrl;
 
@@ -39,11 +50,17 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user && (pathname.startsWith("/login") || pathname.startsWith("/signup"))) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("onboarding_completed")
-      .eq("id", user.id)
-      .single();
+    let profile = null;
+    try {
+      const { data } = await supabase
+        .from("profiles")
+        .select("onboarding_completed")
+        .eq("id", user.id)
+        .single();
+      profile = data;
+    } catch {
+      return NextResponse.next({ request });
+    }
 
     const url = request.nextUrl.clone();
     url.pathname = profile?.onboarding_completed ? "/dashboard" : "/onboarding";

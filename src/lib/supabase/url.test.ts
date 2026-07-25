@@ -63,6 +63,30 @@ describe("sanitizeSupabaseUrl", () => {
       (globalThis as any).window = win;
     }
   });
+
+  test("strips surrounding double quotes from URL", () => {
+    expect(sanitizeSupabaseUrl('"https://example.supabase.co"')).toBe(
+      "https://example.supabase.co"
+    );
+  });
+
+  test("strips surrounding single quotes from URL", () => {
+    expect(sanitizeSupabaseUrl("'https://example.supabase.co'")).toBe(
+      "https://example.supabase.co"
+    );
+  });
+
+  test("strips quotes and trailing slashes together", () => {
+    expect(sanitizeSupabaseUrl('"https://example.supabase.co/"')).toBe(
+      "https://example.supabase.co"
+    );
+  });
+
+  test("strips quotes after trimming surrounding whitespace", () => {
+    expect(sanitizeSupabaseUrl('  "https://example.supabase.co"  ')).toBe(
+      "https://example.supabase.co"
+    );
+  });
 });
 
 describe("requireEnv", () => {
@@ -133,5 +157,20 @@ describe("requireEnv", () => {
   test("returns empty fallback instead of throwing in browser when whitespace only", () => {
     process.env.TEST_KEY = "   ";
     expect(requireEnv("TEST_KEY")).toBe("");
+  });
+
+  test("strips surrounding double quotes from env value", () => {
+    process.env.TEST_KEY = '"actual-value"';
+    expect(requireEnv("TEST_KEY")).toBe("actual-value");
+  });
+
+  test("strips surrounding single quotes from env value", () => {
+    process.env.TEST_KEY = "'actual-value'";
+    expect(requireEnv("TEST_KEY")).toBe("actual-value");
+  });
+
+  test("strips quotes and whitespace together from env value", () => {
+    process.env.TEST_KEY = '  "actual-value"  ';
+    expect(requireEnv("TEST_KEY")).toBe("actual-value");
   });
 });
