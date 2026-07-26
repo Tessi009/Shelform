@@ -152,4 +152,55 @@ describe("createSupabaseBrowserClient", () => {
     const [, key] = mockCreateBrowserClient.mock.calls[0];
     expect(key).toBe("test-anon-key");
   });
+
+  test("reads env vars as direct non-null strings without optional chaining", () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key-123";
+    mockCreateBrowserClient.mockReturnValue({});
+
+    createSupabaseBrowserClient();
+
+    const [url, key] = mockCreateBrowserClient.mock.calls[0];
+    expect(typeof url).toBe("string");
+    expect(typeof key).toBe("string");
+    expect(url).not.toBe("");
+    expect(key).not.toBe("");
+  });
+
+  test("handles undefined env vars without optional chaining producing undefined", () => {
+    delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    mockCreateBrowserClient.mockReturnValue({});
+
+    createSupabaseBrowserClient();
+
+    const [url, key] = mockCreateBrowserClient.mock.calls[0];
+    expect(typeof url).toBe("string");
+    expect(typeof key).toBe("string");
+  });
+
+  test("does NOT pass undefined to createBrowserClient even when process.env is proxied to return undefined (simulates process?.env failure)", () => {
+    const origProcess = globalThis.process;
+    try {
+      const envThatOnlyRespondsToDirectAccess: Record<string, string | undefined> = {};
+      (globalThis as any).process = new Proxy(origProcess, {
+        get(target, prop) {
+          if (prop === "env") return envThatOnlyRespondsToDirectAccess;
+          return Reflect.get(target, prop);
+        },
+      });
+
+      delete (envThatOnlyRespondsToDirectAccess as any).NEXT_PUBLIC_SUPABASE_URL;
+      delete (envThatOnlyRespondsToDirectAccess as any).NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+      mockCreateBrowserClient.mockReturnValue({});
+      createSupabaseBrowserClient();
+
+      const [url, key] = mockCreateBrowserClient.mock.calls[0];
+      expect(typeof url).toBe("string");
+      expect(typeof key).toBe("string");
+    } finally {
+      (globalThis as any).process = origProcess;
+    }
+  });
 });

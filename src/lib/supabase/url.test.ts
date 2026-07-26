@@ -173,4 +173,44 @@ describe("requireEnv", () => {
     process.env.TEST_KEY = '  "actual-value"  ';
     expect(requireEnv("TEST_KEY")).toBe("actual-value");
   });
+
+  test("uses direct static access for NEXT_PUBLIC_ keys, not dynamic process.env[key]", () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
+    const value = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
+    expect(value).toBe("https://example.supabase.co");
+  });
+
+  test("requireEnv with NEXT_PUBLIC_ key returns fallback when process.env lacks the property (simulates client build)", () => {
+    delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    const result = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
+    expect(result).toBe("");
+  });
+
+  test("requireEnv dynamic process.env[key] loses NEXT_PUBLIC_ value that direct static access can find", () => {
+    const origProcess = globalThis.process;
+    try {
+      const store: Record<string, string> = {};
+      const envProxy = new Proxy(store, {
+        get(target, prop) {
+          if (typeof prop === "string" && prop.startsWith("NEXT_PUBLIC_")) {
+            return undefined;
+          }
+          return Reflect.get(target, prop);
+        },
+      });
+      (globalThis as any).process = { env: envProxy };
+
+      store.NEXT_PUBLIC_SUPABASE_URL = "https://real.supabase.co";
+
+      const dynamicFromProxy = process.env["NEXT_PUBLIC_SUPABASE_URL"];
+      expect(dynamicFromProxy).toBeUndefined();
+
+      const result = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
+      expect(result).toBe("");
+    } finally {
+      (globalThis as any).process = origProcess;
+    }
+  });
 });

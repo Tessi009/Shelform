@@ -14,15 +14,18 @@ export function createSupabaseBrowserClient() {
   const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const rawKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!rawUrl?.trim() || !rawKey?.trim()) {
+  const trimmedUrl = (rawUrl ?? '').trim();
+  const trimmedKey = (rawKey ?? '').trim();
+
+  if (!trimmedUrl || !trimmedKey) {
     console.warn(
       "[Supabase] Missing environment variables for browser client initialization. " +
       "Ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set."
     );
   }
 
-  const supabaseUrl = rawUrl?.trim() ? sanitizeSupabaseUrl(rawUrl) : PLACEHOLDER_URL;
-  const supabaseKey = rawKey?.trim() ? stripQuotes(rawKey.trim()) : PLACEHOLDER_KEY;
+  const supabaseUrl = trimmedUrl ? sanitizeSupabaseUrl(trimmedUrl) : PLACEHOLDER_URL;
+  const supabaseKey = trimmedKey ? stripQuotes(trimmedKey) : PLACEHOLDER_KEY;
 
   return createBrowserClient(supabaseUrl, supabaseKey, {
     global: {

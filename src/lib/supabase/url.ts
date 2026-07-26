@@ -18,8 +18,14 @@ export function sanitizeSupabaseUrl(url: string): string {
   return trimmed.replace(/\/+$/, "");
 }
 
+const PUBLIC_ENV_READERS: Record<string, () => string | undefined> = {
+  NEXT_PUBLIC_SUPABASE_URL: () => process.env.NEXT_PUBLIC_SUPABASE_URL,
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: () => process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+};
+
 export function requireEnv(key: string): string {
-  const value = process.env[key];
+  const reader = PUBLIC_ENV_READERS[key];
+  const value = reader ? reader() : process.env[key];
   if (value && value.trim() !== "") {
     return stripQuotes(value.trim()).trim();
   }
